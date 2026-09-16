@@ -8721,15 +8721,27 @@
         bill.anchorDate = g('billAnchor') || pbTodayISO();
       }
       if (f === 'once' || f === 'weekly' || f === 'biweekly') bill.anchorDate = g('billAnchor2') || pbTodayISO();
-      if (bill.setAside) bill.setAsideFrom = state.settings.trackingStart || pbTodayISO();
+      // A bill owes nothing from before it was entered, and nothing can have
+      // been set aside for it before then. Without a start, a monthly bill added
+      // two months into tracking came back with two overdue occurrences, and
+      // safe to spend dropped by three bills the moment one was saved. The engine
+      // already honours startsOn; the form never wrote it. The demo seeds its own
+      // bills from tracking start, which is right for bills that were there then.
+      const today = pbTodayISO();
+      const opened = state.settings.trackingStart || today;
+      const since = opened > today ? opened : today;
 
       state.bills = state.bills || [];
       const i = state.bills.findIndex(x => x.id === bill.id);
       if (i >= 0) {
-        bill.paid = state.bills[i].paid || [];
-        if (state.bills[i].setAsideFrom) bill.setAsideFrom = state.bills[i].setAsideFrom;
+        const prev = state.bills[i];
+        bill.paid = prev.paid || [];
+        if (prev.startsOn) bill.startsOn = prev.startsOn;
+        if (bill.setAside) bill.setAsideFrom = prev.setAsideFrom || since;
         state.bills[i] = bill;
       } else {
+        bill.startsOn = since;
+        if (bill.setAside) bill.setAsideFrom = since;
         state.bills.push(bill);
       }
       saveState();
