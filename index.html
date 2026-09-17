@@ -4612,6 +4612,22 @@
         return { id: plan.id, name: plan.name, limit: plan.limit, spent: spent };
       });
 
+      // --- income ---------------------------------------------------------
+      // Two earners, two frequencies, two different days. The countdown has to
+      // pick whichever lands first.
+      const incomes = [
+        {
+          id: 'i_1', name: 'Maya — Northside Clinic',
+          frequency: 'biweekly', amount: 1842.50,
+          nextPayday: pbISO(pbAddDays(T, 6))
+        },
+        {
+          id: 'i_2', name: 'Devin — Hartley Logistics',
+          frequency: 'semimonthly', amount: 1216.00,
+          nextPayday: pbISO(pbDayInMonth(T.getFullYear(), T.getMonth(), 15))
+        }
+      ];
+
       // --- bills ----------------------------------------------------------
       // The periodic one is the interesting case: $372 of car insurance every
       // six months, carried as $62 a month. Its cycle is anchored so it opens
@@ -4619,12 +4635,28 @@
       // legible in the sample rather than starting part-funded.
       const insuranceDue = pbDayInMonth(m0.getFullYear(), m0.getMonth() + 6, 14);
 
+      // The run to payday is the first chart a buyer sees, and it only has a
+      // shape if a bill lands before the next payday. With every bill on a
+      // fixed day of the month, that happened on roughly two days in three:
+      // open the sample on the 17th and the line was flat. Electric is anchored
+      // inside the window instead -- halfway to the first payday, never before
+      // tomorrow -- using the same payday rule the engine applies. Rent on the
+      // 1st and the six-monthly insurance keep their fixed days; they carry
+      // other parts of the story.
+      const tomorrow = pbAddDays(T, 1);
+      const firstPayday = incomes
+        .map(inc => paydaysFor(inc, pbISO(tomorrow), pbISO(pbAddDays(T, 31)))[0])
+        .filter(Boolean)
+        .sort()[0];
+      const daysToPayday = firstPayday ? pbDaysBetween(T, pbDate(firstPayday)) : 6;
+      const electricDue = pbAddDays(T, Math.max(1, Math.floor(daysToPayday / 2)));
+
       const billPlan = [
         { id: 'b_1', name: 'Rent', amount: 1450, category: 'Housing', frequency: 'monthly', dueDay: 1, setAside: false },
         { id: 'b_2', name: 'Internet', amount: 70, category: 'Utilities', frequency: 'monthly', dueDay: 8, setAside: false },
         // A utility bill is never the same twice; the paid record carries what
         // actually cleared, not the estimate.
-        { id: 'b_3', name: 'Electric', amount: 128.40, category: 'Utilities', frequency: 'monthly', dueDay: 14, setAside: false, variance: [131.20, 142.05, 128.40] },
+        { id: 'b_3', name: 'Electric', amount: 128.40, category: 'Utilities', frequency: 'monthly', dueDay: electricDue.getDate(), setAside: false, variance: [131.20, 142.05, 128.40] },
         // Day 31. Lands on the 30th in a 30-day month and the 28th in February.
         { id: 'b_5', name: 'Phone (2 lines)', amount: 96, category: 'Utilities', frequency: 'monthly', dueDay: 31, setAside: false },
         {
@@ -4665,22 +4697,6 @@
         });
         return bill;
       });
-
-      // --- income ---------------------------------------------------------
-      // Two earners, two frequencies, two different days. The countdown has to
-      // pick whichever lands first.
-      const incomes = [
-        {
-          id: 'i_1', name: 'Maya — Northside Clinic',
-          frequency: 'biweekly', amount: 1842.50,
-          nextPayday: pbISO(pbAddDays(T, 6))
-        },
-        {
-          id: 'i_2', name: 'Devin — Hartley Logistics',
-          frequency: 'semimonthly', amount: 1216.00,
-          nextPayday: pbISO(pbDayInMonth(T.getFullYear(), T.getMonth(), 15))
-        }
-      ];
 
       // --- goals ----------------------------------------------------------
       const goals = [
